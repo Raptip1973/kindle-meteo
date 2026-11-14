@@ -63,8 +63,14 @@ def mare_douglas(m):
 # ---------------- DATI ----------------
 def get_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": "kindle-meteo/1.0"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.load(r)
+    import time
+    for tentativo in range(4):  # Open-Meteo a volte non risponde: riprova
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return json.load(r)
+        except Exception:
+            if tentativo == 3: raise
+            time.sleep(20)
 
 def dati_meteo():
     return get_json(
@@ -204,8 +210,8 @@ def genera(meteo, mare, oggi, adesso):
 
     # --- intestazione (0-104) ---
     d.text((M, 10), GIORNI[oggi.weekday()].upper(), font=B(28), fill=NERO)
-    d.text((M, 44), "%d %s %d" % (oggi.day, MESI[oggi.month - 1], oggi.year), font=F(44, True, serif=True), fill=NERO)
-    d.text((W - M, 16), LUOGO, font=B(28), fill=NERO, anchor="ra")
+    d.text((M, 44), "%d %s %d" % (oggi.day, MESI[oggi.month - 1], oggi.year), font=F(40, True, serif=True), fill=NERO)
+    d.text((418, 14), LUOGO, font=B(24), fill=NERO, anchor="ra")  # a destra lo spazio per l'orologio del Kindle
     d.rectangle([M, 102, W - M, 106], fill=NERO)
 
     # --- oggi (112-300) ---
