@@ -77,6 +77,7 @@ def dati_meteo():
         "https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s"
         "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,"
         "precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,sunrise,sunset"
+        "&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m"
         "&timezone=Europe%%2FRome&forecast_days=4" % (LAT, LON))
 
 def dati_mare():
@@ -93,7 +94,8 @@ def dati_demo(oggi):
              "temperature_2m_min": [9.8, 10.4, 8.7, 7.9], "precipitation_probability_max": [10, 80, 35, 5],
              "precipitation_sum": [0, 6.4, 0.8, 0], "wind_speed_10m_max": [14, 27, 18, 9],
              "wind_gusts_10m_max": [25, 48, 30, 17], "wind_direction_10m_dominant": [100, 140, 40, 270],
-             "sunrise": [days[0] + "T06:51"], "sunset": [days[0] + "T17:02"]}}
+             "sunrise": [days[0] + "T06:51"], "sunset": [days[0] + "T17:02"]},
+             "current": {"temperature_2m": 12.6, "weather_code": 3, "wind_speed_10m": 11, "wind_gusts_10m": 21, "wind_direction_10m": 300}}
     times, lv = [], []
     for h in range(48):
         t = dt.datetime.combine(oggi, dt.time()) + dt.timedelta(hours=h)
@@ -210,24 +212,29 @@ def genera(meteo, mare, oggi, adesso):
 
     # --- intestazione (0-104) ---
     d.text((M, 10), GIORNI[oggi.weekday()].upper(), font=B(28), fill=NERO)
-    d.text((M, 44), "%d %s %d" % (oggi.day, MESI[oggi.month - 1], oggi.year), font=F(40, True, serif=True), fill=NERO)
-    d.text((418, 14), LUOGO, font=B(24), fill=NERO, anchor="ra")  # a destra lo spazio per l'orologio del Kindle
+    d.text((M, 44), "%d %s %d" % (oggi.day, MESI[oggi.month - 1], oggi.year), font=F(44, True, serif=True), fill=NERO)
+    d.text((W - M, 16), LUOGO, font=B(28), fill=NERO, anchor="ra")
     d.rectangle([M, 102, W - M, 106], fill=NERO)
 
     # --- oggi (112-300) ---
     dd = meteo["daily"]
     y0 = 116
-    desc, ic = WMO.get(dd["weather_code"][0], ("—", "cloud"))
-    img.paste(icona(ic, 150), (M - 8, y0))
+    ora = meteo.get("current") or {}   # condizioni di adesso; se mancano uso i valori del giorno
     tmax, tmin = dd["temperature_2m_max"][0], dd["temperature_2m_min"][0]
-    d.text((168, y0 - 4), "%d°" % round(tmax), font=B(84), fill=NERO)
-    d.text((170, y0 + 92), "min %d°" % round(tmin), font=B(28), fill=NERO)
+    cod = ora.get("weather_code"); t_ora = ora.get("temperature_2m")
+    if cod is None: cod = dd["weather_code"][0]
+    desc, ic = WMO.get(cod, ("—", "cloud"))
+    img.paste(icona(ic, 150), (M - 8, y0))
+    d.text((168, y0 - 4), "%d°" % round(tmax if t_ora is None else t_ora), font=B(84), fill=NERO)
+    d.text((170, y0 + 92), ("min %d°" % round(tmin)) if t_ora is None else "%d° / %d°" % (round(tmax), round(tmin)), font=B(28), fill=NERO)
     d.text((M, y0 + 142), desc, font=B(28), fill=NERO)
     pp = dd["precipitation_probability_max"][0] or 0; ps = dd["precipitation_sum"][0] or 0
-    d.text((M, y0 + 178), "Pioggia %d%%" % pp + ("  ·  %.1f mm" % ps if ps >= 0.2 else ""), font=B(24), fill=NERO)
+    d.text((M, y0 + 178), "Pioggia oggi %d%%" % pp + ("  ·  %.1f mm" % ps if ps >= 0.2 else ""), font=B(24), fill=NERO)
     vx = 390
-    nome, sig = vento_nome(dd["wind_direction_10m_dominant"][0])
-    vel, raff = dd["wind_speed_10m_max"][0], dd["wind_gusts_10m_max"][0]
+    vel, raff, dirv = ora.get("wind_speed_10m"), ora.get("wind_gusts_10m"), ora.get("wind_direction_10m")
+    if vel is None or raff is None or dirv is None:
+        vel, raff, dirv = dd["wind_speed_10m_max"][0], dd["wind_gusts_10m_max"][0], dd["wind_direction_10m_dominant"][0]
+    nome, sig = vento_nome(dirv)
     img.paste(icona("wind", 36), (vx, y0 + 2))
     d.text((vx + 44, y0 + 6), "VENTO", font=B(22), fill=NERO)
     d.text((vx, y0 + 46), nome, font=B(32), fill=NERO)
